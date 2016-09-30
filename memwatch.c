@@ -18,11 +18,11 @@
 #include <unistd.h>
 
 int main(int ac, char *av[]);
-int CheckUsage(const char*);
+int CheckUsage(const char *pid, const char*, const int);
 
 
 /*Function open the statm file for the Application and monitor the usage constantly*/
-int CheckUsage(const char *filename)
+int CheckUsage(const char *pid, const char *filename, int check_times)
 {
 
   struct sysinfo info;
@@ -33,7 +33,7 @@ int CheckUsage(const char *filename)
   unsigned long TotalRam = 0;
   TotalRam = (info.totalram * info.mem_unit) / 1024;
 
-  printf("%10s %12s %13s","Total Ram","Application","Percentage\n");
+  printf("%5s %20s %20s","PID", "Application","Percentage\n");
   //printf("Check file %s\n", filename);
 
 
@@ -63,11 +63,19 @@ int CheckUsage(const char *filename)
     Percentage = (float)(((float)TotalUsage/1024)/(float)TotalRam)*100;
 
 
-    printf("%10lukB %10lukB %10.3f%%\n", TotalRam, TotalUsage/1024, Percentage);
+    printf("%5s %18lukB %18.3f%%\n", pid, TotalUsage/1024, Percentage);
 
     fclose(FP);
 
     sleep(1);
+
+    if (check_times > 0) {
+      --check_times;
+    } else if (check_times == 0) {
+      return 1;
+    } else {
+      // Do nothing
+    }
   }
 
   return 1;
@@ -75,12 +83,17 @@ int CheckUsage(const char *filename)
 
 int main(int ac, char *av[])
 {
-  const char *AppName = av[1];
-  if(AppName==NULL){
-    fprintf(stderr,"Usage %s Appname\n", (char *)basename(av[0]));
+  if (ac < 2) {
+    fprintf(stderr,"Usage %s process_name\n", (char *)basename(av[0]));
     exit(EXIT_FAILURE);
   }
 
+  int check_times = -1;
+  if (ac > 2) {
+    check_times = atoi(av[2]);
+  }
+
+  const char *AppName = av[1];
   DIR *ProcDir = NULL;
 
   DIR *ProcDirDir = NULL;
@@ -146,7 +159,7 @@ int main(int ac, char *av[])
           //printf("Found Command %s %d\n", cmd, strlen(cmd));
           sprintf(cmdline,"/proc/%s/statm",pDir->d_name);
 
-          CheckUsage(cmdline);
+          CheckUsage(pDir->d_name, cmdline, check_times);
         }
 
         fclose(fp);
